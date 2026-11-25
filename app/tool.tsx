@@ -172,7 +172,7 @@ export function Tool({ claimZeroRetention, claimHipaa }: { claimZeroRetention: b
             <ListCheckIcon />
             Every code checked against the official FY2027 list
           </span>
-          <span>Free, no sign-up</span>
+          <span>Free, no sign-up, 10 notes a day</span>
         </div>
         {preview.total > 0 && status !== "loading" && (
           <p className="pending" aria-live="polite">
@@ -207,6 +207,9 @@ export function Tool({ claimZeroRetention, claimHipaa }: { claimZeroRetention: b
               <span>{(result.ms / 1000).toFixed(1)} s</span>
               <span>{result.codeSet}</span>
               <span>{result.setting === "outpatient" ? "Outpatient rules" : "Inpatient rules"}</span>
+              <span>
+                {result.remainingToday} of 10 free notes left today
+              </span>
             </div>
 
             {sent && (

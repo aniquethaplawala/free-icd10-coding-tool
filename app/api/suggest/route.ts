@@ -5,6 +5,7 @@ import { systemPrompt, userPrompt, type Setting } from "@/lib/prompt";
 import { takeDailyQuota, takeIpToken } from "@/lib/ratelimit";
 import { reviewCodes } from "@/lib/review";
 import { scrub } from "@/lib/scrub";
+import { cookieFor, DAILY_FREE_RUNS, usedToday } from "@/lib/dailyCookie";
 import type { SuggestResponse } from "@/lib/types";
 import { numberWarning, parseAndValidate } from "@/lib/validate";
 
@@ -37,6 +38,10 @@ export async function POST(req: Request) {
 
   const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "local";
   if (!takeIpToken(ip)) return fail(429, "You've reached the limit for now. Try again in 10 minutes.");
+  const used = usedToday(req.headers.get("cookie"));
+  if (used >= DAILY_FREE_RUNS) {
+    return fail(429, `You've used today's ${DAILY_FREE_RUNS} free notes in this browser. Come back tomorrow.`);
+  }
   if (!(await takeDailyQuota())) return fail(429, "We've reached today's free limit. Try again tomorrow.");
 
   // The browser already removed identifiers. Run it again here in case a client skipped it.
@@ -56,15 +61,17 @@ export async function POST(req: Request) {
     const response: SuggestResponse = {
       ...first,
       codes,
-      // Drop tips that point at a code the review removed.
       // A tip about a code the review removed or corrected no longer applies.
       tips: review.tips.filter((t) => !t.currentCode || kept.has(t.currentCode)),
       dropped: { ...first.dropped, failedReview: review.failedReview, corrected: review.corrected, reviewed: review.reviewed },
       setting,
       ms: Date.now() - started,
       codeSet: CODE_SET_LABEL,
+      remainingToday: DAILY_FREE_RUNS - (used + 1),
     };
-    return NextResponse.json(response, { headers: NO_STORE });
+    const res = NextResponse.json(response, { headers: NO_STORE });
+    res.cookies.set(cookieFor(used + 1));
+    return res;
   } catch (err) {
     // Log the failure type only. Never log the note, the prompt or the model's reply.
     const kind = err instanceof M1Error ? `${err.status}:${err.code}` : err instanceof Error ? err.message.slice(0, 40) : "unknown";

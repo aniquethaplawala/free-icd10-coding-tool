@@ -47,4 +47,6 @@ export type SuggestResponse = {
   setting: "outpatient" | "inpatient";
   ms: number;
   codeSet: string;
+  /** Free runs left today in this browser. */
+  remainingToday: number;
 };
